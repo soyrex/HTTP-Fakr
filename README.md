@@ -11,7 +11,9 @@ That's all.
 Basic Usage
 -----------
 1) To use it. You'll need Node.js installed. Then you just run: node httpfakr.js
+
 2) Configure your browser to proxy through port 8080 on your local machine - easiest with Firefox.
+
 3) By default the is a file called $ in the overrides, once the proxy is running, this will
 override any root web request with a simple hello message... you probably want to remove that file.
 
