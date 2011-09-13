@@ -13,9 +13,9 @@ fs.readdir('./overrides',function(err, files){
   for(f in files) {
     var filename = files[f];
     // read the file and store it in the global dictionary:
-    fs.readFile('overrides/'+filename,function(err, data) {
-      patterns[filename] = data;
-    });
+    data = fs.readFileSync('overrides/'+filename);
+    sys.log("WATCHING FOR: "+filename);
+    patterns[filename] = data;
   }
 });
 
