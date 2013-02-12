@@ -5,35 +5,48 @@ var fs    = require('fs');
 // This will hold our override patterns.
 // Populated using the files in the overrides directory.
 var patterns = {}
-
 // Populate it, loops the dir and gets the files.
 // This could be smarter, it could walk sub dirs and
 // match proper paths.. but for now it works.
-fs.readdir('./overrides',function(err, files){
-  for(f in files) {
-    var filename = files[f];
-    // read the file and store it in the global dictionary:
-    data = fs.readFileSync('overrides/'+filename);
-    sys.log("WATCHING FOR: "+filename);
-    patterns[filename] = data;
-  }
-});
+
+  fs.readdir('./overrides',function(err, files){
+    for(f in files) {
+      var filename = files[f];
+      // read the file and store it in the global dictionary:
+      data = fs.readFileSync('overrides/'+filename);
+      sys.log("WATCHING FOR: "+filename);
+      patterns[filename] = data;
+    }
+  });
+
 
 // Create a server:
 http.createServer(function(request, response) {
   // Create a client:
-  var proxy = http.createClient(80, request.headers['host'])
-  var prequest = proxy.request(request.method, request.url, request.headers);
+  url =  request.url.replace(request.headers['host'],'').replace('http://','').replace('https://','');
+  if(url.match('^media/'))
+    url = '/'+url;
+  sys.log("HOST: "+request.headers['host'])
+  sys.log("URL: "+url)
 
-  prequest.addListener('response', function (presponse) {
+  var options = {
+      port     : 80,
+      host     : request.headers['host'],
+      method   : request.method,
+      path     : url
+}
+
+
+  var prequest = http.request(options, function (presponse) {
     // check if we match any of the overrides:
     var overridden = false;
     for(pattern in patterns) {
       // This section is really not event based. it just
       // spits out our override file:
       if(request.url.match(".*\/"+pattern)) {
-        response.write(patterns[pattern]);     
         response.writeHead(presponse.statusCode);  
+        response.write(patterns[pattern]);     
+        response.addTrailers(presponse.trailers);
         response.end();  
         sys.log("OVERRIDE: "+request.url+" ("+pattern+")");
         overridden = true;
@@ -45,16 +58,19 @@ http.createServer(function(request, response) {
     if(!overridden)
     {
       sys.log("PASSTHRU: "+request.url);
-      // Listen for data and write it to the response:
-      presponse.addListener('data', function(chunk) { response.write(chunk, 'binary'); });
-
-      // End the response:
-      presponse.addListener('end', function() { response.end(); });
-      
-      // Write the response code - we AREN'T passing headers, since it helps us 
-      // NOT cache our proxied data in the browser.
-      response.writeHead(presponse.statusCode);      
+      sys.log("RESPONSE STATUS CODE: "+presponse.statusCode);
+      response.writeHead(presponse.statusCode, presponse.headers);
+      presponse.on("data", function(chunk)  {
+        response.write(chunk);
+      });
+      presponse.on("end", function () {
+          response.addTrailers(presponse.trailers);
+          response.end();
+      });
     }
+  }).on('error',function(e) {
+    sys.log('err');
+    sys.log(e.message);
   });
 
   // Data handler:
